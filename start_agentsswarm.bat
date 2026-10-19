@@ -69,13 +69,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "EXECUTION_BACKEND=standalone"
-for /f "tokens=1,2 delims==" %%A in ('findstr /b /c:"EXECUTION_BACKEND=" ".env" 2^>nul') do set "EXECUTION_BACKEND=%%B"
+set "TASK_EXECUTION_BACKEND=standalone"
+for /f "tokens=1,2 delims==" %%A in ('findstr /b /c:"TASK_EXECUTION_BACKEND=" ".env" 2^>nul') do set "TASK_EXECUTION_BACKEND=%%B"
 set "CONNECTOR_BACKEND=none"
 for /f "tokens=1,2 delims==" %%A in ('findstr /b /c:"CONNECTOR_BACKEND=" ".env" 2^>nul') do set "CONNECTOR_BACKEND=%%B"
 
-if /i "%EXECUTION_BACKEND%"=="remote_api" call :is_port_in_use 8790
-if /i "%EXECUTION_BACKEND%"=="remote_api" if errorlevel 1 (
+if /i "%TASK_EXECUTION_BACKEND%"=="remote_api" call :is_port_in_use 8790
+if /i "%TASK_EXECUTION_BACKEND%"=="remote_api" if errorlevel 1 (
   echo [WARN] Remote execution API is not detected on port 8790.
   echo [WARN] AgentSwarm will still start, but remote execution flows will fail until REMOTE_API_URL is reachable.
 )
@@ -131,7 +131,7 @@ if "%RUN_DOCTOR%"=="1" (
 echo ================================================
 echo   AgentSwarm starting
 echo   Service: secure local control plane with browser dashboard
-echo   Execution Backend: !EXECUTION_BACKEND!
+echo   Execution Backend: !TASK_EXECUTION_BACKEND!
 echo   Connector Backend: !CONNECTOR_BACKEND!
 echo   Dashboard: http://127.0.0.1:!BRIDGE_PORT!/
 if "%RUN_UI%"=="1" (

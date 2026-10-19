@@ -119,7 +119,7 @@ export function syncBootstrapEnv(options = {}) {
     BRIDGE_PORT: bridgeEnv.BRIDGE_PORT || "7799",
     BRIDGE_SECRET: bridgeEnv.BRIDGE_SECRET || "",
     ALLOW_UNSECURED_BRIDGE: bridgeEnv.ALLOW_UNSECURED_BRIDGE || "false",
-    EXECUTION_BACKEND: bridgeEnv.EXECUTION_BACKEND || "standalone",
+    TASK_EXECUTION_BACKEND: bridgeEnv.TASK_EXECUTION_BACKEND || "standalone",
     CONNECTOR_BACKEND: bridgeEnv.CONNECTOR_BACKEND || "none",
     SWARMCLAW_URL: bridgeEnv.SWARMCLAW_URL || "http://127.0.0.1:3456",
     SWARMCLAW_ACCESS_KEY: bridgeEnv.SWARMCLAW_ACCESS_KEY || swarmEnv.ACCESS_KEY || "",
@@ -186,7 +186,7 @@ export function syncBootstrapEnv(options = {}) {
   }
 
   const finalEnv = readEnvFile(envPath)
-  const executionBackend = String(finalEnv.EXECUTION_BACKEND || "standalone").trim().toLowerCase() || "standalone"
+  const executionBackend = String(finalEnv.TASK_EXECUTION_BACKEND || "standalone").trim().toLowerCase() || "standalone"
   const connectorBackend = String(finalEnv.CONNECTOR_BACKEND || "none").trim().toLowerCase() || "none"
 
   const missingRequired = []

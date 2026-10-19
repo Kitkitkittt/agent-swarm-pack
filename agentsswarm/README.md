@@ -119,8 +119,8 @@ Examples:
 ## Required env
 
 - `BRIDGE_SECRET` unless you intentionally run `ALLOW_UNSECURED_BRIDGE=true` for local development
-- `SWARMCLAW_ACCESS_KEY`
-- `INBOX_WEBHOOK_SECRET`
+- `CONNECTOR_API_KEY` (or `SWARMCLAW_ACCESS_KEY`) only with `CONNECTOR_BACKEND=external_connector`
+- `REMOTE_INBOX_SECRET` (or `INBOX_WEBHOOK_SECRET`) only with `TASK_EXECUTION_BACKEND=remote_api`
 
 Common optional env:
 
@@ -144,6 +144,25 @@ Common optional env:
 - `HTTP_RETRY_BASE_DELAY_MS`
 
 See `agentsswarm/.env.example` for the full template.
+
+### Standalone execution and approvals
+
+`TASK_EXECUTION_BACKEND=standalone` and `CONNECTOR_BACKEND=none` are the defaults. Both `$` directives and `#` tasks stay local. Without a runner, tasks remain on the board; registration is not execution success.
+
+Set `STANDALONE_TASK_RUNNER_COMMAND` to an operator-controlled executable and `STANDALONE_TASK_RUNNER_ARGS` to a JSON string array (for example `["--json"]`). The bridge starts that fixed command without a shell and writes one JSON task brief followed by a newline to stdin. Task text never becomes executable arguments. The runner must read stdin to EOF and use its exit status to signal success. Output is bounded to 1 MiB; timeout defaults to 300000 ms and concurrency to 2, configurable through `STANDALONE_TASK_RUNNER_TIMEOUT_MS` and `STANDALONE_TASK_RUNNER_CONCURRENCY`.
+
+`STANDALONE_ALLOWED_PROJECT_ROOTS` is a comma-separated absolute-root allowlist. Task working directories must resolve inside it, including symlink resolution. Its default is `DEFAULT_PROJECT_PATH`, otherwise the package root. Runtime JSON and run artifacts live under `AGENTSSWARM_DATA_DIR`; keep that directory private. Interrupted runs are retained as interrupted after restart and are never silently replayed.
+
+Authenticated `POST /tasks` accepts `requiresApproval:true` and `runNow:false`. Approval-required tasks cannot run until the corresponding authenticated `POST /approvals/:id/approve`; decisions are terminal and cannot be replayed. The existing default remains `requiresApproval:false`. The monitor is read-only; approvals are not a promise of sandboxing the configured runner.
+
+Schedules accept exactly one of an ISO `runAt` or positive `intervalMs`, plus `commandText` and task routing metadata. Missed occurrences are not replayed and one schedule cannot overlap itself. Imported skills are bounded inert text, never executable code; HTTPS imports reject redirects and non-public destinations. Connector responses redact credentials; an unverified/configured state is not evidence of external connectivity.
+
+### Monitor and canonical verification
+
+The shared dependency-free monitor is served at `/dashboard`; `npm --prefix ui run dev -- --port 7800` serves the same assets with a narrow read-only bridge proxy. `npm run build:web` emits the deployable static assets under `ui/dist`. No credentials are embedded in the monitor.
+
+Canonical gates remain `npm ci`, `npm --prefix ui ci`, `npm run check`, `npm test`, `npm run test:web`, `npm run build:web`, bridge startup and `BRIDGE_URL=http://127.0.0.1:7801 npm run test:perf` on Node22. The performance gate makes 100 real health/dashboard/summary requests, requires zero errors and p95 below 1000 ms, and bounds readiness to 20 seconds. This is a local regression budget, not a production SLA.
+
 
 ## Chat routing contract
 
