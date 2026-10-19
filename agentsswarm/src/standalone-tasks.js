@@ -134,7 +134,10 @@ export function createStandaloneTaskManager(config = {}) {
   function terminate(entry, status, error) {
     if (!entry.terminalStatus) Object.assign(entry, { terminalStatus: status, terminalError: error })
     kill(entry, 'SIGTERM')
-    if (!entry.killTimer) entry.killTimer = setTimeout(() => kill(entry, 'SIGKILL'), 1000)
+    if (!entry.killTimer) entry.killTimer = setTimeout(() => {
+      kill(entry, 'SIGKILL')
+      for (const stream of ['stdin', 'stdout', 'stderr']) entry.child?.[stream]?.destroy()
+    }, 1000)
   }
   async function launch(taskId) {
     const task = state.tasks.find((item) => item.id === taskId)
@@ -173,7 +176,7 @@ export function createStandaloneTaskManager(config = {}) {
       finished = true
       clearTimeout(entry.timer)
       clearTimeout(entry.killTimer)
-      if (entry.terminalStatus && entry.child) kill(entry, 'SIGKILL')
+      if (entry.child) kill(entry, 'SIGKILL')
       resolveStarted({ started: false, reason: 'runner_spawn_failed', task: clone(updatedTask), run: clone(run) })
       const operation = serialize(async () => {
         const finalState = clone(state)
@@ -216,7 +219,7 @@ export function createStandaloneTaskManager(config = {}) {
         entry.bytes += chunk.length
         if (entry.bytes > MAX_OUTPUT) terminate(entry, 'failed', 'runner_output_limit_exceeded')
       })
-      child.stdin.on('error', (error) => { if (error.code !== 'EPIPE') terminate(entry, 'failed', 'runner_stdin_error') })
+      child.stdin.on('error', () => terminate(entry, 'failed', 'runner_stdin_error'))
       child.stdin.end(`${JSON.stringify(brief)}\n`)
       entry.timer = setTimeout(() => terminate(entry, 'timed_out', 'runner_timeout'), timeoutMs)
     } catch (error) { finish(null, null, error) }
