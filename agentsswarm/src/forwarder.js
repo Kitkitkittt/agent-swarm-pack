@@ -697,6 +697,7 @@ export async function createAndRunTaskInAgentsswarm(config, payload) {
 }
 
 export async function sendConnectorUpdate(config, route, text) {
+  if (config.connectorBackend === 'none') return
   if (!route?.connectorId || !route?.channelId) return
   const response = await requestJson(
     `${config.swarmclawUrl}/api/connectors/${encodeURIComponent(route.connectorId)}/send`,
@@ -704,7 +705,7 @@ export async function sendConnectorUpdate(config, route, text) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Access-Key": config.swarmclawAccessKey,
+        "X-Access-Key": config.connectorApiKey || config.swarmclawAccessKey,
       },
       body: JSON.stringify(buildConnectorMessagePayload(route, text)),
     },

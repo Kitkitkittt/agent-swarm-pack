@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentSwarm Monitor</title>
+    <link rel="stylesheet" href="/dashboard/assets/monitor.css" />
+    <script src="/dashboard/assets/monitor.js" defer></script>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="head">
+        <div>
+          <h1>AgentSwarm Monitor</h1>
+          <div class="muted">Live local dashboard for tasks, routes, and approvals</div>
+          <div class="status" role="status" aria-live="polite"><span id="status-dot" class="dot" aria-hidden="true"></span><span id="status-text" class="muted">Connecting...</span></div>
+        </div>
+        <div>
+          <button id="refresh-btn" type="button">Refresh</button>
+          <div class="muted refresh-time">Last refresh: <span id="last-refresh">never</span></div>
+        </div>
+      </div>
+      <section class="row" aria-label="Summary">
+        <article class="card"><div class="label">Tasks</div><div class="value" id="tasks-total">0</div><div class="hint" id="tasks-hint">-</div></article>
+        <article class="card"><div class="label">Pending approvals</div><div class="value" id="approvals-total">0</div><div class="hint" id="approvals-hint">-</div></article>
+        <article class="card"><div class="label">Active runs</div><div class="value" id="runs-total">0</div><div class="hint" id="runs-hint">-</div></article>
+        <article class="card"><div class="label">Route entries</div><div class="value" id="routes-total">0</div><div class="hint" id="routes-hint">-</div></article>
+      </section>
+      <section class="panel" aria-labelledby="tasks-heading">
+        <h2 class="label" id="tasks-heading">Recent tasks</h2>
+        <table>
+          <thead><tr><th scope="col">ID</th><th scope="col">Title</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">Approval</th><th scope="col">Updated</th></tr></thead>
+          <tbody id="tasks-table"><tr><td colspan="6" class="muted">No tasks yet.</td></tr></tbody>
+        </table>
+      </section>
+      <section class="panel" aria-labelledby="approvals-heading">
+        <h2 class="label" id="approvals-heading">Approvals</h2>
+        <table>
+          <thead><tr><th scope="col">ID</th><th scope="col">Task</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">Updated</th></tr></thead>
+          <tbody id="approvals-table"><tr><td colspan="5" class="muted">No approvals yet.</td></tr></tbody>
+        </table>
+      </section>
+    </main>
+  </body>
+</html>

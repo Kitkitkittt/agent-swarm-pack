@@ -29,6 +29,12 @@ It sits between inbound chat connectors and the downstream AgentSwarm / Claw-Emp
 - `src/state-store.js`: persistent bridge state storage
 - `src/cli.js`: operator commands (`health`, `routes`, `channels`, `summary`, `providers`, `packs`, `preflight`, `doctor`, `ingest`, `prune`)
 - `src/logger.js`: structured runtime logging and request ID helpers
+- `src/standalone-tasks.js` and `src/standalone-approvals.js`: durable local runner lifecycle and explicit approval decisions
+- `src/schedule-manager.js`: one-shot/interval scheduling without missed-run replay
+- `src/runtime-settings.js` and `src/connector-manager.js`: persisted operator defaults and credential-redacted connector inventory
+- `src/skill-loader.js`: bounded inert skill imports and matching
+- `src/agent-soul.js`, `src/role-presets.js`, `src/channel-templates.js`, `src/task-fields.js`, and `src/metrics.js`: template/catalog normalization and bounded runtime counters
+- `ui/`: shared read-only vanilla monitor, static build and loopback development server
 
 ### Stored state
 
@@ -193,7 +199,6 @@ These are still worthwhile after the current pass:
 
 - move persistent state from JSON file to SQLite or another small embedded store
 - add richer audit history and delivery history instead of current latest-state persistence only
-- expose a tiny status dashboard for active tasks, connector health, and bridge warnings
 - add upstream idempotency support if the downstream AgentSwarm API exposes a stable mechanism
 
 ## Suggested Operating Routine
@@ -215,3 +220,4 @@ Use this sequence when working on AgentSwarm:
 - improved provider selection behavior when tools are unavailable
 - improved observability and operator diagnostics
 - expanded test coverage to lock in the new behavior
+- Replacement development restores the eleven missing runtime modules and separate UI package while retaining every canonical CI gate. The fixed runner protocol, approval semantics and local performance regression budget are documented in `README.md`.

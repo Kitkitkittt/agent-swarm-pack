@@ -1,0 +1,25 @@
+body { margin: 0; padding: 16px; font-family: "Segoe UI", Tahoma, sans-serif; background: #0f172a; color: #e2e8f0; }
+.wrap { max-width: 1120px; margin: 0 auto; }
+h1 { margin: 0 0 4px; font-size: 1.6rem; }
+.muted { color: #94a3b8; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 14px 0; }
+.card { border: 1px solid #334155; border-radius: 12px; padding: 10px; background: #111b33; }
+.label { margin: 0; font-weight: normal; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
+.value { margin-top: 5px; font-size: 1.6rem; font-weight: 700; }
+.hint { margin-top: 3px; font-size: 0.8rem; color: #94a3b8; }
+.panel { border: 1px solid #334155; border-radius: 12px; padding: 10px; background: #111b33; margin-top: 12px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th, td { border-bottom: 1px solid #334155; padding: 7px 6px; text-align: left; font-size: 0.86rem; }
+th { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
+code { color: #93c5fd; font-family: Consolas, monospace; }
+.pill { display: inline-block; border: 1px solid #475569; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; }
+.status { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 999px; background: #64748b; }
+.dot.live { background: #22c55e; box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.16); }
+.dot.warn { background: #f59e0b; box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.16); }
+.dot.error { background: #ef4444; box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.16); }
+button { border: 1px solid #3b82f6; background: #1d4ed8; color: #dbeafe; border-radius: 9px; padding: 6px 10px; cursor: pointer; }
+button:disabled { cursor: wait; opacity: 0.65; }
+button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 3px; }
+.head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.refresh-time { margin-top: 6px; font-size: 0.8rem; }

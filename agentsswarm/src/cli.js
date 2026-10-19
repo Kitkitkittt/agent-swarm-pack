@@ -153,8 +153,12 @@ async function buildDoctorData({ bridgeUrl }) {
   const packs = listCompactPacks(config)
 
   const bridgeHealth = await safeRequest(`${bridgeUrl}/health`, { method: "GET" })
-  const apiHealth = await safeRequest(`${config.agentsswarmApiUrl}/api/health`, { method: "GET" })
-  const connectors = await fetchConnectors(config)
+  const apiHealth = config.executionBackend === 'remote_api'
+    ? await safeRequest(`${config.agentsswarmApiUrl}/api/health`, { method: 'GET' })
+    : { ok: true, skipped: true }
+  const connectors = config.connectorBackend === 'external_connector'
+    ? await fetchConnectors(config)
+    : { ok: true, skipped: true }
 
   return {
     config,
@@ -313,8 +317,8 @@ async function runDoctor({ bridgeUrl }) {
 
   const issues = []
   if (!config.bridgeSecret && !config.allowUnsecuredBridge) issues.push("BRIDGE_SECRET missing")
-  if (!config.swarmclawAccessKey) issues.push("SWARMCLAW_ACCESS_KEY missing")
-  if (!config.inboxWebhookSecret) issues.push("INBOX_WEBHOOK_SECRET missing")
+  if (config.connectorBackend === 'external_connector' && !config.connectorApiKey) issues.push('CONNECTOR_API_KEY missing')
+  if (config.executionBackend === 'remote_api' && !config.remoteInboxSecret) issues.push('REMOTE_INBOX_SECRET missing')
   for (const issue of config.configIssues) {
     issues.push(`config issue: ${issue}`)
   }
@@ -340,11 +344,11 @@ async function runDoctor({ bridgeUrl }) {
     if (!config.bridgeSecret && !config.allowUnsecuredBridge) {
       process.stdout.write("- Fill BRIDGE_SECRET in agentsswarm/.env, or set ALLOW_UNSECURED_BRIDGE=true only for local development.\n")
     }
-    if (!config.swarmclawAccessKey) {
-      process.stdout.write("- Fill SWARMCLAW_ACCESS_KEY in agentsswarm/.env then re-run doctor.\n")
+    if (config.connectorBackend === 'external_connector' && !config.connectorApiKey) {
+      process.stdout.write('- Fill CONNECTOR_API_KEY in agentsswarm/.env then re-run doctor.\n')
     }
-    if (!config.inboxWebhookSecret) {
-      process.stdout.write("- Fill INBOX_WEBHOOK_SECRET in agentsswarm/.env then re-run doctor.\n")
+    if (config.executionBackend === 'remote_api' && !config.remoteInboxSecret) {
+      process.stdout.write('- Fill REMOTE_INBOX_SECRET in agentsswarm/.env then re-run doctor.\n')
     }
     if (!bridgeHealth.ok) {
       process.stdout.write("- Start AgentSwarm: start_agentsswarm.bat (Windows) or ./start_agentsswarm.sh (macOS/Linux).\n")

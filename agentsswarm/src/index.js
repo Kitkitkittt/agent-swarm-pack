@@ -20,6 +20,7 @@ import { createStandaloneTaskManager } from './standalone-tasks.js'
 import { createStatusRelay } from './status-relay.js'
 import { loadBridgeState, saveBridgeState } from './state-store.js'
 import { normalizeBooleanFlag, normalizeTaskPriority } from './task-fields.js'
+import { renderDashboardPage, readDashboardAsset } from '../ui/server.js'
 
 const MAX_TEXT_LENGTH = 4_000
 const MAX_ROUTE_VALUE_LENGTH = 256
@@ -80,204 +81,6 @@ function requestWantsHtml(req) {
   return accept.includes('text/html')
 }
 
-function renderDashboardPage() {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AgentSwarm Monitor</title>
-    <style>
-      body { margin: 0; padding: 16px; font-family: "Segoe UI", Tahoma, sans-serif; background: #0f172a; color: #e2e8f0; }
-      .wrap { max-width: 1120px; margin: 0 auto; }
-      h1 { margin: 0 0 4px; font-size: 1.6rem; }
-      .muted { color: #94a3b8; }
-      .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 14px 0; }
-      .card { border: 1px solid #334155; border-radius: 12px; padding: 10px; background: #111b33; }
-      .label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
-      .value { margin-top: 5px; font-size: 1.6rem; font-weight: 700; }
-      .hint { margin-top: 3px; font-size: 0.8rem; color: #94a3b8; }
-      .panel { border: 1px solid #334155; border-radius: 12px; padding: 10px; background: #111b33; margin-top: 12px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      th, td { border-bottom: 1px solid #334155; padding: 7px 6px; text-align: left; font-size: 0.86rem; }
-      th { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
-      code { color: #93c5fd; font-family: Consolas, monospace; }
-      .pill { display: inline-block; border: 1px solid #475569; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; }
-      .status { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-      .dot { width: 10px; height: 10px; border-radius: 999px; background: #64748b; }
-      .dot.live { background: #22c55e; box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.16); }
-      .dot.warn { background: #f59e0b; box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.16); }
-      .dot.error { background: #ef4444; box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.16); }
-      button { border: 1px solid #3b82f6; background: #1d4ed8; color: #dbeafe; border-radius: 9px; padding: 6px 10px; cursor: pointer; }
-      .head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="head">
-        <div>
-          <h1>AgentSwarm Monitor</h1>
-          <div class="muted">Live local dashboard for tasks, routes, and approvals</div>
-          <div class="status"><span id="status-dot" class="dot"></span><span id="status-text" class="muted">Connecting...</span></div>
-        </div>
-        <div>
-          <button id="refresh-btn" type="button">Refresh</button>
-          <div class="muted" style="margin-top:6px; font-size:0.8rem;">Last refresh: <span id="last-refresh">never</span></div>
-        </div>
-      </div>
-
-      <section class="row">
-        <article class="card"><div class="label">Tasks</div><div class="value" id="tasks-total">0</div><div class="hint" id="tasks-hint">-</div></article>
-        <article class="card"><div class="label">Pending approvals</div><div class="value" id="approvals-total">0</div><div class="hint" id="approvals-hint">-</div></article>
-        <article class="card"><div class="label">Active runs</div><div class="value" id="runs-total">0</div><div class="hint" id="runs-hint">-</div></article>
-        <article class="card"><div class="label">Route entries</div><div class="value" id="routes-total">0</div><div class="hint" id="routes-hint">-</div></article>
-      </section>
-
-      <section class="panel">
-        <div class="label">Recent tasks</div>
-        <table>
-          <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Approval</th><th>Updated</th></tr></thead>
-          <tbody id="tasks-table"><tr><td colspan="6" class="muted">No tasks yet.</td></tr></tbody>
-        </table>
-      </section>
-
-      <section class="panel">
-        <div class="label">Approvals</div>
-        <table>
-          <thead><tr><th>ID</th><th>Task</th><th>Status</th><th>Priority</th><th>Updated</th></tr></thead>
-          <tbody id="approvals-table"><tr><td colspan="5" class="muted">No approvals yet.</td></tr></tbody>
-        </table>
-      </section>
-    </div>
-
-    <script>
-      (function () {
-        var statusDot = document.getElementById("status-dot")
-        var statusText = document.getElementById("status-text")
-        var refreshBtn = document.getElementById("refresh-btn")
-        var lastRefresh = document.getElementById("last-refresh")
-
-        function safeText(value) {
-          return String(value == null ? "" : value)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#39;")
-        }
-
-        function setStatus(kind, text) {
-          statusDot.className = "dot " + kind
-          statusText.textContent = text
-        }
-
-        function setValue(id, value) {
-          var node = document.getElementById(id)
-          if (!node) return
-          node.textContent = String(value)
-        }
-
-        function pill(value) {
-          var text = String(value || "unknown")
-          return '<span class="pill">' + safeText(text) + '</span>'
-        }
-
-        function formatTime(value) {
-          if (!value) return "-"
-          var date = new Date(value)
-          if (Number.isNaN(date.getTime())) return "-"
-          return date.toLocaleString()
-        }
-
-        function renderTasks(tasks) {
-          var rows = Array.isArray(tasks) ? tasks : []
-          var table = document.getElementById("tasks-table")
-          if (rows.length <= 0) {
-            table.innerHTML = '<tr><td colspan="6" class="muted">No tasks yet.</td></tr>'
-            return
-          }
-          table.innerHTML = rows.map(function (task) {
-            return [
-              "<tr>",
-              "<td><code>" + safeText(task.id || "") + "</code></td>",
-              "<td>" + safeText(task.title || task.description || "(untitled)") + "</td>",
-              "<td>" + pill(task.status) + "</td>",
-              "<td>" + pill(task.priority) + "</td>",
-              "<td>" + pill(task.approvalStatus || "none") + "</td>",
-              '<td class="muted">' + safeText(formatTime(task.updatedAt || task.createdAt)) + '</td>',
-              "</tr>",
-            ].join("")
-          }).join("")
-        }
-
-        function renderApprovals(approvals) {
-          var rows = Array.isArray(approvals) ? approvals : []
-          var table = document.getElementById("approvals-table")
-          if (rows.length <= 0) {
-            table.innerHTML = '<tr><td colspan="5" class="muted">No approvals yet.</td></tr>'
-            return
-          }
-          table.innerHTML = rows.map(function (approval) {
-            return [
-              "<tr>",
-              "<td><code>" + safeText(approval.id || "") + "</code></td>",
-              "<td>" + safeText(approval.taskTitle || approval.taskId || "-") + "</td>",
-              "<td>" + pill(approval.status) + "</td>",
-              "<td>" + pill(approval.priority) + "</td>",
-              '<td class="muted">' + safeText(formatTime(approval.updatedAt || approval.createdAt)) + '</td>',
-              "</tr>",
-            ].join("")
-          }).join("")
-        }
-
-        async function refresh() {
-          setStatus("warn", "Refreshing...")
-          refreshBtn.disabled = true
-          try {
-            var response = await fetch("/dashboard/data", { cache: "no-store" })
-            if (!response.ok) throw new Error("http_" + response.status)
-            var payload = await response.json()
-            var summary = payload.summary || {}
-            var routes = summary.routes || {}
-            var standaloneTasks = summary.standaloneTasks || {}
-            var approvalsSummary = summary.approvals || {}
-
-            var routeTotal = Number(routes.channels || 0) + Number(routes.projects || 0) + Number(routes.tasks || 0)
-            setValue("tasks-total", standaloneTasks.total || 0)
-            setValue("tasks-hint", "pending approval: " + Number(standaloneTasks.approvalsPending || 0))
-            setValue("approvals-total", approvalsSummary.pending || 0)
-            setValue("approvals-hint", "approved: " + Number(approvalsSummary.approved || 0) + " | rejected: " + Number(approvalsSummary.rejected || 0))
-            setValue("runs-total", standaloneTasks.activeRuns || 0)
-            setValue("runs-hint", standaloneTasks.runnerConfigured ? "runner configured" : "runner not configured")
-            setValue("routes-total", routeTotal)
-            setValue("routes-hint", "ch:" + Number(routes.channels || 0) + " | pr:" + Number(routes.projects || 0) + " | tk:" + Number(routes.tasks || 0))
-
-            renderTasks(payload.tasks)
-            renderApprovals(payload.approvals)
-
-            setStatus("live", "Live")
-            lastRefresh.textContent = new Date().toLocaleString()
-          } catch (error) {
-            setStatus("error", "Refresh failed")
-            lastRefresh.textContent = String(error && error.message ? error.message : error)
-          } finally {
-            refreshBtn.disabled = false
-          }
-        }
-
-        refreshBtn.addEventListener("click", function () {
-          void refresh()
-        })
-
-        void refresh()
-        setInterval(function () {
-          void refresh()
-        }, 5000)
-      })()
-    </script>
-  </body>
-</html>`
-}
 
 function createHttpError(statusCode, code) {
   const error = new Error(code)
@@ -302,7 +105,7 @@ function validateMaxLength(value, maxLength, code) {
 
 function validateAbsolutePath(projectPath) {
   if (!projectPath) return
-  if (!path.isAbsolute(projectPath)) {
+  if (!path.isAbsolute(projectPath) && !path.win32.isAbsolute(projectPath)) {
     throw createHttpError(400, 'project_path_must_be_absolute')
   }
 }
@@ -580,8 +383,9 @@ export function createBridgeServer(options = {}) {
   const config = options.config || loadConfig()
   const runtimeMetrics = options.runtimeMetrics || createRuntimeMetrics()
   config.runtimeMetrics = runtimeMetrics
-  const bridgeState = options.bridgeState || loadBridgeState()
-  const saveState = options.saveState || saveBridgeState
+  const stateOptions = { stateFile: config.runtimePaths?.stateFile }
+  const bridgeState = options.bridgeState || loadBridgeState(stateOptions)
+  const saveState = options.saveState || (state => saveBridgeState(state, stateOptions))
   const forwardDirective = options.forwardDirective || forwardDirectiveToAgentsswarm
   const createTaskAndRun = options.createTaskAndRun || createAndRunTaskInAgentsswarm
   const relayFactory = options.relayFactory || createStatusRelay
@@ -654,6 +458,10 @@ export function createBridgeServer(options = {}) {
           ok: false,
           error: 'standalone_runner_unavailable',
         }
+      }
+      const previousTask = schedule.lastResult?.taskId && standaloneTaskManager.getTask(schedule.lastResult.taskId)
+      if (previousTask && ['queued', 'running'].includes(previousTask.status)) {
+        return { ok: false, error: 'schedule_task_active', taskId: previousTask.id }
       }
 
       const commandText = normalize(schedule.commandText)
@@ -1114,6 +922,7 @@ export function createBridgeServer(options = {}) {
 
   const statusRelay = relayFactory({
     config,
+    ...(standaloneTaskManager ? { listTasks: async (_config, options) => standaloneTaskManager.listTasks({}).filter(task => !options?.taskIds || options.taskIds.includes(task.id)).map(task => ({ ...task, project_path: task.projectPath })) } : {}),
     resolveRouteForTask,
     shouldRelayTask,
     getLastStatus,
@@ -1132,11 +941,7 @@ export function createBridgeServer(options = {}) {
     settings: runtimeSettings,
     config,
     persist: persistRuntimeSettings,
-    tester: options.testConnector || (async (connection) => ({
-      ok: true,
-      status: 'connected',
-      message: `${connection.platform} connector looks valid`,
-    })),
+    tester: options.testConnector,
     onRegistered: (connection) => {
       registerChannelRoute(connection, connection.projectPath)
       if (connection.projectPath) {
@@ -1218,7 +1023,7 @@ export function createBridgeServer(options = {}) {
       })
     }
 
-    if (parsed.commandType === 'directive') {
+    if (parsed.commandType === 'directive' && !standaloneTaskManager) {
       const result = await forwardDirective(config, {
         text: parsed.text,
         platform: parsed.route.platform,
@@ -1256,7 +1061,7 @@ export function createBridgeServer(options = {}) {
     if (standaloneTaskManager) {
         const task = await standaloneTaskManager.createTask({
           text: parsed.text,
-          commandType: 'task',
+          commandType: parsed.commandType,
           projectPath: effectiveProjectPath,
           platform: parsed.route.platform,
           accountId: parsed.route.accountId,
@@ -1302,8 +1107,9 @@ export function createBridgeServer(options = {}) {
           })
         }
 
-        const runResult = approval
-          ? { started: false, reason: 'task_approval_pending', task: persistedTask }
+        const boardOnly = (runtimeDefaults.taskCommandMode || config.taskCommandMode) === 'board_only'
+        const runResult = approval || boardOnly
+          ? { started: false, reason: approval ? 'task_approval_pending' : 'queued', task: persistedTask }
           : await standaloneTaskManager.runTask(task.id)
 
         registerTaskRoute(
@@ -1568,6 +1374,12 @@ export function createBridgeServer(options = {}) {
       const requestUrl = new URL(req.url || '/', 'http://127.0.0.1')
       const rawPathname = requestUrl.pathname
       const pathname = stripApiPrefix(rawPathname)
+      if (req.method === 'GET' && pathname.startsWith('/dashboard/assets/')) {
+        const asset = readDashboardAsset(pathname)
+        if (!asset) return json(res, 404, { error: 'not_found' }, responseHeaders)
+        res.writeHead(200, { ...responseHeaders, 'content-type': asset.contentType })
+        return res.end(asset.body)
+      }
 
       if (req.method === 'GET' && pathname === '/') {
         if (requestWantsHtml(req)) {
@@ -1744,16 +1556,14 @@ export function createBridgeServer(options = {}) {
         if (!profile) {
           return json(res, 404, { error: 'provider_profile_not_found' }, responseHeaders)
         }
-        if (apiKey.toLowerCase().includes('invalid')) {
-          return json(res, 401, { error: 'provider_auth_failed' }, responseHeaders)
-        }
 
-        const message = `${profileId} connectivity check passed`
+        const message = `${profileId} configuration accepted; connectivity not verified`
         return json(res, 200, {
           ok: true,
           result: {
             profileId,
             transport: profile.transport,
+            status: 'unverified',
             message,
           },
         }, responseHeaders)
@@ -2509,6 +2319,25 @@ export function createBridgeServer(options = {}) {
 
   async function start(options = {}) {
     if (server.listening) return server.address()
+    if (standaloneTaskManager && standaloneApprovalManager) {
+      for (const task of standaloneTaskManager.listTasks({})) {
+        if (!task.approvalRequired) continue
+        const approvals = standaloneApprovalManager.listApprovals({ taskId: task.id })
+        if (approvals.length > 1) throw new Error('task_approval_state_ambiguous')
+        let approval = approvals[0]
+        if (!approval) {
+          approval = await standaloneApprovalManager.createApproval({
+            taskId: task.id, taskTitle: task.title, taskDescription: task.description,
+            priority: task.priority, rolePresetId: task.rolePresetId, projectPath: task.projectPath,
+            taskCommandMode: task.taskCommandMode, requestedBy: 'recovery',
+          })
+        }
+        if (task.approvalId && task.approvalId !== approval.id) throw new Error('task_approval_state_mismatch')
+        if (task.approvalId !== approval.id || task.approvalStatus !== approval.status) {
+          await standaloneTaskManager.setTaskApproval(task.id, { approvalRequired: true, approvalId: approval.id, approvalStatus: approval.status })
+        }
+      }
+    }
     listenHost = options.host || '127.0.0.1'
     await new Promise((resolve, reject) => {
       const onError = (err) => {
@@ -2523,7 +2352,7 @@ export function createBridgeServer(options = {}) {
       server.once('listening', onListening)
       server.listen(options.port ?? config.port, listenHost)
     })
-    statusRelay.start()
+    if (config.connectorBackend !== 'none') statusRelay.start()
     scheduleManager.start()
     logInfo('bridge_started', {
       url: getListenUrl(),
@@ -2535,7 +2364,8 @@ export function createBridgeServer(options = {}) {
 
   async function stop() {
     statusRelay.stop()
-    scheduleManager.stop()
+    await scheduleManager.stop()
+    await standaloneTaskManager?.stop()
     await flushBridgeState()
     if (!server.listening) return
     await new Promise((resolve) => {

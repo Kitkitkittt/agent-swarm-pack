@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { normalizeChannelRouteMap, normalizePlatform } from './channels.js'
 import {
+  getPackageRoot,
   resolveDataDir,
   resolveEnvFilePath,
   resolveScheduleFilePath,
@@ -61,6 +62,16 @@ function asList(value, fallback = []) {
   return Array.from(new Set(items))
 }
 
+function runnerArguments(value) {
+  if (!String(value || '').trim()) return []
+  let parsed
+  try { parsed = JSON.parse(value) } catch { throw new Error('STANDALONE_TASK_RUNNER_ARGS must be a JSON string array.') }
+  if (!Array.isArray(parsed) || parsed.some(argument => typeof argument !== 'string' || argument.includes('\0'))) {
+    throw new Error('STANDALONE_TASK_RUNNER_ARGS must be a JSON string array.')
+  }
+  return parsed
+}
+
 function normalizeUrl(value, fallback) {
   const raw = String(value || '').trim()
   const selected = raw || fallback
@@ -111,7 +122,7 @@ function resolveExecutionBackend(value, issues) {
   const normalized = String(value || '').trim().toLowerCase()
   if (!normalized) return 'standalone'
   if (['standalone', 'remote_api'].includes(normalized)) return normalized
-  addIssue(issues, `EXECUTION_BACKEND=${normalized} is invalid; falling back to standalone.`)
+  addIssue(issues, `TASK_EXECUTION_BACKEND=${normalized} is invalid; falling back to standalone.`)
   return 'standalone'
 }
 
@@ -148,9 +159,9 @@ export function loadConfig(env = process.env, options = {}) {
   parseJsonOverride(env.AGENTSSWARM_PACKS_JSON, issues, 'AGENTSSWARM_PACKS_JSON', {
     allowArray: true,
   })
-  const packageRoot = path.resolve(resolveDataDir(env), '..')
+  const packageRoot = getPackageRoot()
   const defaultProjectPath = String(env.DEFAULT_PROJECT_PATH || '').trim()
-  const executionBackend = resolveExecutionBackend(env.EXECUTION_BACKEND, issues)
+  const executionBackend = resolveExecutionBackend(env.TASK_EXECUTION_BACKEND, issues)
   const connectorBackend = resolveConnectorBackend(env.CONNECTOR_BACKEND, issues)
   const standaloneAllowedProjectRoots = asList(
     env.STANDALONE_ALLOWED_PROJECT_ROOTS,
@@ -208,7 +219,7 @@ export function loadConfig(env = process.env, options = {}) {
     httpRetryMaxAttempts: asInt(env.HTTP_RETRY_MAX_ATTEMPTS, 2, { min: 1, max: 5 }),
     httpRetryBaseDelayMs: asInt(env.HTTP_RETRY_BASE_DELAY_MS, 250),
     standaloneTaskRunnerCommand: String(env.STANDALONE_TASK_RUNNER_COMMAND || '').trim(),
-    standaloneTaskRunnerArgs: asList(env.STANDALONE_TASK_RUNNER_ARGS, []),
+    standaloneTaskRunnerArgs: runnerArguments(env.STANDALONE_TASK_RUNNER_ARGS),
     standaloneTaskRunnerTimeoutMs: asInt(env.STANDALONE_TASK_RUNNER_TIMEOUT_MS, 5 * 60 * 1000),
     standaloneTaskRunnerConcurrency: asInt(env.STANDALONE_TASK_RUNNER_CONCURRENCY, 2, { min: 1, max: 20 }),
     standaloneAllowedProjectRoots,
@@ -245,11 +256,11 @@ export function loadConfig(env = process.env, options = {}) {
   if (!config.bridgeSecret && !config.allowUnsecuredBridge) {
     requiredIssues.push('BRIDGE_SECRET is required unless ALLOW_UNSECURED_BRIDGE=true.')
   }
-  if (!config.swarmclawAccessKey) {
-    requiredIssues.push('SWARMCLAW_ACCESS_KEY is required')
+  if (config.connectorBackend === 'external_connector' && !config.connectorApiKey) {
+    requiredIssues.push('CONNECTOR_API_KEY is required for external_connector.')
   }
-  if (!config.inboxWebhookSecret) {
-    requiredIssues.push('INBOX_WEBHOOK_SECRET is required')
+  if (config.executionBackend === 'remote_api' && !config.remoteInboxSecret) {
+    requiredIssues.push('REMOTE_INBOX_SECRET is required for remote_api.')
   }
 
   if (requiredIssues.length > 0) {

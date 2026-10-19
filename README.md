@@ -331,7 +331,7 @@ See [GOCLAW_PACKS.md](GOCLAW_PACKS.md) for the full porting guide.
 - **[templates/USER.md](templates/USER.md)** — USER.md template
 
 ### Legacy (OpenClaw/AgentSwarm)
-- `agentsswarm/` — Original TypeScript/React AgentSwarm runtime (deprecated)
+- [`agentsswarm/`](agentsswarm/README.md) — Node22 chat bridge, configured standalone runner and shared read-only vanilla monitor; independent of GoClaw
 - `CLAW_EMPIRE_SETUP.md` — Legacy visual office reference
 
 ---

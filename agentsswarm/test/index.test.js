@@ -486,6 +486,7 @@ test('api-prefixed runtime settings endpoints manage defaults and connections', 
     relayFactory: () => createRelayStub(),
     saveState: () => {},
     settingsFile,
+    testConnector: async () => ({ ok: true }),
   })
   await bridge.start({ port: 0 })
   t.after(async () => {

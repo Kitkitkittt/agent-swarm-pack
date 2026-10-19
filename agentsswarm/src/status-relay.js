@@ -1,7 +1,7 @@
 import { listAgentsswarmTasks, sendConnectorUpdate } from './forwarder.js'
 import { logInfo, logWarn } from './logger.js'
 
-const TERMINAL_STATUSES = new Set(['done', 'cancelled', 'failed', 'error'])
+const TERMINAL_STATUSES = new Set(['done', 'completed', 'cancelled', 'failed', 'error', 'timed_out', 'interrupted'])
 
 function toStage(status) {
   if (status === 'review') return 'Reviewing'

@@ -90,6 +90,7 @@ test('provider model listing merges discovery catalog with defaults', () => {
 test('failover chain preserves requested ordering before ranked fallbacks', () => {
   const chain = buildFailoverChain({}, 'gemini-cli', {
     fallbackProviderProfileIds: ['codex-main', 'openrouter-fallback'],
+    runner: () => ({ status: 0 }),
   })
 
   assert.deepEqual(

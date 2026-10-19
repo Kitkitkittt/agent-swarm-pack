@@ -3,6 +3,10 @@
 .gemini/
 claw-empire/
 swarmclaw/
-agentsswarm/
+agentsswarm/node_modules/
+agentsswarm/data/
+agentsswarm/.env
+agentsswarm/ui/node_modules/
+agentsswarm/ui/dist/
 PROMPT_CLAW_EMPIRE_BAT.md
 LOCALHOST_VS_V203_DEPLOY.md

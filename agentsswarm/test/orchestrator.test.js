@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildDirectiveRequestBody, buildTaskCreateRequest, createExecutionContext } from '../src/orchestrator.js'
+import { loadProviderProfiles } from '../src/providers.js'
 
 function createConfig(overrides = {}) {
   return {
@@ -9,6 +10,7 @@ function createConfig(overrides = {}) {
     defaultProjectPath: 'C:/workspace/project',
     defaultCompactPackKey: 'software-6',
     defaultProviderProfileId: 'codex-main',
+    providerProfilesRaw: JSON.stringify(loadProviderProfiles().map(profile => ({ ...profile, commandId: profile.commandId === 'codex' ? process.execPath : profile.commandId }))),
     taskCommandMode: 'hybrid',
     directiveSkipPlannedMeeting: true,
     ...overrides,
