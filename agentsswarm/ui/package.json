@@ -1,0 +1,14 @@
+{
+  "name": "agentsswarm-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only AgentSwarm monitor; build emits dist static assets and dev serves loopback with BRIDGE_URL (default http://127.0.0.1:7799).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node dev.js"
+  }
+}
