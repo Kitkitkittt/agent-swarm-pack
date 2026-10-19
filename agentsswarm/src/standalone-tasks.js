@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { getPackageRoot, resolveStandaloneTaskFilePath, resolveStandaloneTaskRunDir } from './runtime-paths.js'
 import { normalizeTaskPriority, normalizeBooleanFlag } from './task-fields.js'
 
@@ -11,6 +12,14 @@ const priorities = { urgent: 3, high: 2, normal: 1, low: 0 }
 const clone = (value) => structuredClone(value)
 const now = () => new Date().toISOString()
 function invalid(message) { return Object.assign(new Error(message), { statusCode: 400 }) }
+
+function publicRun(run) {
+  const result = {}
+  for (const key of ['id', 'taskId', 'status', 'mode', 'createdAt', 'startedAt', 'finishedAt', 'exitCode', 'signal', 'outputTruncated']) {
+    if (Object.hasOwn(run, key)) result[key] = run[key]
+  }
+  return result
+}
 
 function outputText(chunks) {
   const bytes = Buffer.concat(chunks)
@@ -177,7 +186,7 @@ export function createStandaloneTaskManager(config = {}) {
       clearTimeout(entry.timer)
       clearTimeout(entry.killTimer)
       if (entry.child) kill(entry, 'SIGKILL')
-      resolveStarted({ started: false, reason: 'runner_spawn_failed', task: clone(updatedTask), run: clone(run) })
+      resolveStarted({ started: false, reason: 'runner_spawn_failed', task: clone(updatedTask), run: publicRun(run) })
       const operation = serialize(async () => {
         const finalState = clone(state)
         const finalRun = finalState.runs.find((item) => item.id === run.id)
@@ -208,11 +217,21 @@ export function createStandaloneTaskManager(config = {}) {
       })
     }
     try {
-      const child = spawn(command, runnerArgs, { cwd, shell: false, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true })
+      const child = spawn(process.execPath, [fileURLToPath(new URL('./runner-supervisor.js', import.meta.url))], {
+        cwd, shell: false, stdio: ['pipe', 'pipe', 'pipe', 'ipc'], detached: process.platform !== 'win32', windowsHide: true,
+      })
       entry.child = child
-      child.once('spawn', () => resolveStarted({ started: true, task: clone(updatedTask), run: clone(run) }))
-      child.once('error', (error) => { entry.spawnError = error })
-      child.once('close', (code, signal) => finish(code, signal, entry.spawnError))
+      child.on('message', (message) => {
+        if (message?.type === 'started') resolveStarted({ started: true, task: clone(updatedTask), run: publicRun(run) })
+        if (message?.type === 'spawn_error') entry.spawnError = new Error('runner_spawn_failed')
+        if (message?.type === 'stdin_error') terminate(entry, 'failed', 'runner_stdin_error')
+        if (message?.type === 'result') entry.result = { code: message.code, signal: message.signal }
+      })
+      child.once('error', () => { entry.spawnError = new Error('runner_spawn_failed') })
+      child.once('close', (code, signal) => finish(entry.result ? entry.result.code : code, entry.result ? entry.result.signal : signal, entry.spawnError))
+      child.send({ type: 'configure', command, args: runnerArgs, cwd }, (error) => {
+        if (error) terminate(entry, 'failed', 'runner_supervisor_unavailable')
+      })
       for (const stream of ['stdout', 'stderr']) child[stream].on('data', (chunk) => {
         const available = Math.max(0, MAX_OUTPUT - entry.bytes)
         if (available) entry[stream].push(chunk.subarray(0, available))
@@ -294,15 +313,15 @@ export function createStandaloneTaskManager(config = {}) {
     listRuns({ status, q, taskId, limit } = {}) {
       const search = String(q || '').toLowerCase()
       const runs = state.runs.filter((item) => (!status || item.status === status) && (!taskId || item.taskId === taskId)
-        && (!search || `${item.id} ${item.taskId} ${item.summary} ${item.error}`.toLowerCase().includes(search)))
+        && (!search || `${item.id} ${item.taskId} ${item.status}`.toLowerCase().includes(search)))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      return clone(Number.isInteger(limit) && limit > 0 ? runs.slice(0, limit) : runs)
+      return clone((Number.isInteger(limit) && limit > 0 ? runs.slice(0, limit) : runs).map(publicRun))
     },
     getRun(id) {
       const run = state.runs.find((item) => item.id === id)
-      return run ? clone({ run, task: state.tasks.find((item) => item.id === run.taskId) }) : null
+      return run ? clone({ run: publicRun(run), task: state.tasks.find((item) => item.id === run.taskId) }) : null
     },
-    listTaskRuns(id) { return clone(state.runs.filter((item) => item.taskId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))) },
+    listTaskRuns(id) { return clone(state.runs.filter((item) => item.taskId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(publicRun)) },
     async stop() {
       stopping = true
       await queue
