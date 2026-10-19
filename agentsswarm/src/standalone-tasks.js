@@ -156,6 +156,7 @@ export function createStandaloneTaskManager(config = {}) {
     if (stopping) return { started: false, reason: 'runtime_stopped', task: clone(task) }
     if (task.status === 'running') return { started: false, reason: 'task_running', task: clone(task) }
     if (!command) return { started: false, reason: 'runner_not_configured', task: clone(task) }
+    if (process.platform !== 'linux') throw invalid('runner_platform_unsupported')
     const cwd = await cwdFor(task.projectPath)
     const next = clone(state)
     const updatedTask = next.tasks.find((item) => item.id === taskId)
@@ -164,6 +165,9 @@ export function createStandaloneTaskManager(config = {}) {
       await commit(next)
       return { started: false, reason: 'concurrency_limit', task: clone(updatedTask) }
     }
+    const cwdHandle = await fs.promises.open(cwd, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW)
+    try {
+      if (!(await cwdHandle.stat()).isDirectory() || await cwdFor(`/proc/self/fd/${cwdHandle.fd}`) !== cwd) throw invalid('project_path_invalid')
     const run = {
       id: randomUUID(), taskId, status: 'running', mode: 'standalone', summary: '', error: '',
       createdAt: now(), startedAt: now(), finishedAt: null, stdout: '', stderr: '',
@@ -218,7 +222,7 @@ export function createStandaloneTaskManager(config = {}) {
     }
     try {
       const child = spawn(process.execPath, [fileURLToPath(new URL('./runner-supervisor.js', import.meta.url))], {
-        cwd, shell: false, stdio: ['pipe', 'pipe', 'pipe', 'ipc'], detached: process.platform !== 'win32', windowsHide: true,
+        shell: false, stdio: ['pipe', 'pipe', 'pipe', 'ipc', cwdHandle.fd], detached: true, windowsHide: true,
       })
       entry.child = child
       child.on('message', (message) => {
@@ -229,7 +233,7 @@ export function createStandaloneTaskManager(config = {}) {
       })
       child.once('error', () => { entry.spawnError = new Error('runner_spawn_failed') })
       child.once('close', (code, signal) => finish(entry.result ? entry.result.code : code, entry.result ? entry.result.signal : signal, entry.spawnError))
-      child.send({ type: 'configure', command, args: runnerArgs, cwd }, (error) => {
+      child.send({ type: 'configure', command, args: runnerArgs }, (error) => {
         if (error) terminate(entry, 'failed', 'runner_supervisor_unavailable')
       })
       for (const stream of ['stdout', 'stderr']) child[stream].on('data', (chunk) => {
@@ -243,6 +247,7 @@ export function createStandaloneTaskManager(config = {}) {
       entry.timer = setTimeout(() => terminate(entry, 'timed_out', 'runner_timeout'), timeoutMs)
     } catch (error) { finish(null, null, error) }
     return started
+    } finally { await cwdHandle.close() }
   }
   return {
     createTask(input = {}) {

@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 
 let runner
@@ -38,14 +39,16 @@ process.on('message', (message) => {
   if (configured || stopping) return
   configured = true
   if (message?.type !== 'configure' || typeof message.command !== 'string'
-    || !Array.isArray(message.args) || message.args.some((arg) => typeof arg !== 'string')
-    || typeof message.cwd !== 'string') {
+    || !Array.isArray(message.args) || message.args.some((arg) => typeof arg !== 'string')) {
     report({ type: 'spawn_error' }, stop)
     return
   }
   try {
+    if (process.platform !== 'linux' || !fs.fstatSync(4).isDirectory()) throw new Error('runner_platform_unsupported')
+    process.chdir('/proc/self/fd/4')
+    fs.closeSync(4)
     runner = spawn(message.command, message.args, {
-      cwd: message.cwd, shell: false, detached: false, windowsHide: true,
+      shell: false, detached: false, windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     runner.once('spawn', () => report({ type: 'started' }))
