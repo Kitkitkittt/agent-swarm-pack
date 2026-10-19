@@ -22,12 +22,12 @@ function load(file) {
   try {
     const state = JSON.parse(fs.readFileSync(file, 'utf8'))
     if (state?.version !== 1 || !Array.isArray(state.tasks) || !Array.isArray(state.runs)
-      || state.tasks.some((task) => typeof task?.id !== 'string' || !task.id || !statuses.has(task.status)
+      || state.tasks.some((task) => !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(task?.id) || !statuses.has(task.status)
         || !Object.hasOwn(priorities, task.priority) || typeof task.projectPath !== 'string'
         || typeof task.approvalRequired !== 'boolean'
         || !['not_required', 'pending', 'approved', 'rejected'].includes(task.approvalStatus)
         || (task.approvalRequired && task.approvalStatus === 'not_required'))
-      || state.runs.some((run) => !/^[a-f0-9-]{36}$/.test(run?.id) || !statuses.has(run.status)
+      || state.runs.some((run) => !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(run?.id) || !statuses.has(run.status)
         || typeof run.stdout !== 'string' || typeof run.stderr !== 'string'
         || Buffer.byteLength(run.stdout) + Buffer.byteLength(run.stderr) > MAX_OUTPUT
         || !state.tasks.some((task) => task.id === run.taskId))
@@ -93,6 +93,9 @@ export function createStandaloneTaskManager(config = {}) {
     const result = queue.then(() => {
       if (failure) throw failure
       return operation()
+    }).catch((error) => {
+      if (error?.statusCode === 400) throw error
+      throw new Error('task_runtime_unavailable')
     })
     queue = result.catch(() => {})
     return result
@@ -181,7 +184,7 @@ export function createStandaloneTaskManager(config = {}) {
         const status = entry.terminalStatus || (spawnError || code !== 0 ? 'failed' : 'completed')
         Object.assign(finalRun, {
           status, stdout, stderr, summary: stdout.trim() || stderr.trim(), exitCode: code, signal,
-          error: entry.terminalError || (spawnError ? spawnError.message : code === 0 ? '' : `runner_exit_${code ?? signal}`),
+          error: entry.terminalError || (spawnError ? 'runner_spawn_failed' : code === 0 ? '' : `runner_exit_${code ?? signal}`),
           finishedAt: now(), outputTruncated: entry.bytes > MAX_OUTPUT,
         })
         Object.assign(finalTask, { status, updatedAt: now() })
@@ -304,7 +307,7 @@ export function createStandaloneTaskManager(config = {}) {
       for (const entry of entries) terminate(entry, 'interrupted', 'runtime_stopped')
       await Promise.all(entries.map((entry) => entry.done))
       await queue
-      if (failure) throw failure
+      if (failure) throw new Error('task_runtime_unavailable')
     },
   }
 }

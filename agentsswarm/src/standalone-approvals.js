@@ -11,7 +11,8 @@ function load(file) {
   try {
     const state = JSON.parse(fs.readFileSync(file, 'utf8'))
     if (state?.version !== 1 || !Array.isArray(state.approvals)
-      || state.approvals.some((item) => !item?.id || !item.taskId || !statuses.has(item.status))
+      || state.approvals.some((item) => !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(item?.id)
+        || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(item.taskId) || !statuses.has(item.status))
       || new Set(state.approvals.map((item) => item.id)).size !== state.approvals.length) {
       throw new Error('invalid approval state')
     }
@@ -50,7 +51,7 @@ export function createStandaloneApprovalManager(config = {}) {
       try { await save(file, next) } catch (error) { failure = error; throw error }
       state = next
       return clone(result)
-    })
+    }).catch(() => { throw new Error('approval_runtime_unavailable') })
     queue = operation.catch(() => {})
     return operation
   }
@@ -67,7 +68,7 @@ export function createStandaloneApprovalManager(config = {}) {
   }
   return {
     createApproval(input = {}) {
-      if (!String(input.taskId || '').trim()) throw new Error('approval_task_id_required')
+      if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(input.taskId)) throw new Error('approval_task_id_invalid')
       return mutate((next) => {
         const now = new Date().toISOString()
         const approval = {

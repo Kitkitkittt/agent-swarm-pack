@@ -25,7 +25,7 @@ function load(file) {
   try {
     const state = JSON.parse(fs.readFileSync(file, 'utf8'))
     if (state?.version !== 1 || !Array.isArray(state.schedules)
-      || state.schedules.some((item) => !item?.id || !item.commandText || !statuses.has(item.status)
+      || state.schedules.some((item) => !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(item?.id) || !item.commandText || !statuses.has(item.status)
         || typeof item.enabled !== 'boolean' || (item.nextRunAt !== null && !Number.isFinite(Date.parse(item.nextRunAt))))
       || new Set(state.schedules.map((item) => item.id)).size !== state.schedules.length) throw new Error('invalid schedule state')
     for (const item of state.schedules) cadence(item)
@@ -74,6 +74,9 @@ export function createScheduleManager(config = {}, { stateFile, onTrigger } = {}
     const result = queue.then(() => {
       if (failure) throw failure
       return operation()
+    }).catch((error) => {
+      if (error?.statusCode === 400) throw error
+      throw new Error('schedule_runtime_unavailable')
     })
     queue = result.catch(() => {})
     return result
@@ -116,7 +119,7 @@ export function createScheduleManager(config = {}, { stateFile, onTrigger } = {}
     active.set(id, completion)
     Promise.resolve().then(() => onTrigger(clone(updated))).then(
       (result) => ({ ok: result?.ok !== false, result: result ?? null, error: result?.ok === false ? String(result.error || 'schedule_trigger_failed') : '' }),
-      (error) => ({ ok: false, result: null, error: String(error.message || error) }),
+      () => ({ ok: false, result: null, error: 'schedule_trigger_failed' }),
     ).then((outcome) => serialize(async () => {
       const finalState = clone(state)
       const current = finalState.schedules.find((item) => item.id === id)
@@ -213,7 +216,7 @@ export function createScheduleManager(config = {}, { stateFile, onTrigger } = {}
       await queue
       await Promise.all(active.values())
       await queue
-      if (failure) throw failure
+      if (failure) throw new Error('schedule_runtime_unavailable')
     },
   }
 }
