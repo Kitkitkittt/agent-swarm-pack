@@ -79,3 +79,13 @@ test('configured timeout is terminal and board-only ingest does not execute', as
   const terminal = await until(() => request(`/tasks/${ingested.body.taskId}`), value => value.body.task?.status === 'timed_out')
   assert.equal(terminal.body.task.status, 'timed_out')
 })
+
+test('successful runner result stays completed during supervisor cleanup past its deadline', async t => {
+  const { request, dir } = await fixture(t, { STANDALONE_TASK_RUNNER_TIMEOUT_MS: '500' })
+  const created = await request('/tasks', { text: 'complete before deadline', projectPath: dir })
+  assert.equal(created.status, 200)
+  const terminal = await until(() => request(`/tasks/${created.body.task.id}`), value => ['completed', 'failed', 'timed_out'].includes(value.body.task?.status))
+  assert.equal(terminal.body.task.status, 'completed')
+  const runs = await request(`/tasks/${created.body.task.id}/runs`)
+  assert.equal(runs.body.runs[0].exitCode, 0)
+})

@@ -229,7 +229,10 @@ export function createStandaloneTaskManager(config = {}) {
         if (message?.type === 'started') resolveStarted({ started: true, task: clone(updatedTask), run: publicRun(run) })
         if (message?.type === 'spawn_error') entry.spawnError = new Error('runner_spawn_failed')
         if (message?.type === 'stdin_error') terminate(entry, 'failed', 'runner_stdin_error')
-        if (message?.type === 'result') entry.result = { code: message.code, signal: message.signal }
+        if (message?.type === 'result') {
+          clearTimeout(entry.timer)
+          entry.result = { code: message.code, signal: message.signal }
+        }
       })
       child.once('error', () => { entry.spawnError = new Error('runner_spawn_failed') })
       child.once('close', (code, signal) => finish(entry.result ? entry.result.code : code, entry.result ? entry.result.signal : signal, entry.spawnError))
