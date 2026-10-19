@@ -105,7 +105,7 @@ function validateMaxLength(value, maxLength, code) {
 
 function validateAbsolutePath(projectPath) {
   if (!projectPath) return
-  if (!path.isAbsolute(projectPath)) {
+  if (!path.isAbsolute(projectPath) && !path.win32.isAbsolute(projectPath)) {
     throw createHttpError(400, 'project_path_must_be_absolute')
   }
 }

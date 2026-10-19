@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { loadProviderProfiles } from '../src/providers.js'
 import {
   createAndRunTaskInAgentsswarm,
   forwardDirectiveToAgentsswarm,
@@ -18,6 +19,7 @@ function createConfig(overrides = {}) {
     taskCommandMode: 'hybrid',
     defaultCompactPackKey: 'software-6',
     defaultProviderProfileId: 'codex-main',
+    providerProfilesRaw: JSON.stringify(loadProviderProfiles().map(profile => ({ ...profile, commandId: profile.commandId === 'codex' ? process.execPath : profile.commandId }))),
     requiredCliToolIds: ['openclaw', 'codex'],
     compactAgentLimit: 8,
     enforceCompactProjectScope: true,

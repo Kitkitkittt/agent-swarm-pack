@@ -20,8 +20,8 @@ export const loadAgentsTemplate = (config) => template('AGENTS.md', config)
 export function normalizeAgentSoul(identity = {}) {
   return {
     name: text(identity.name), persona: text(identity.persona), objective: text(identity.objective),
-    voice: text(identity.voice), guardrails: text(identity.guardrails), soulText: text(identity.soulText),
-    identityText: text(identity.identityText), systemPrompt: text(identity.systemPrompt),
+    voice: text(identity.voice), guardrails: text(identity.guardrails), soulText: text(identity.soulText) || loadSoulTemplate(),
+    identityText: text(identity.identityText) || loadIdentityTemplate(), systemPrompt: text(identity.systemPrompt),
     tags: Array.isArray(identity.tags) ? [...new Set(identity.tags.map(text).filter(Boolean))].slice(0, 64) : [],
   }
 }
@@ -35,7 +35,10 @@ export function mergeIdentityIntoPrompt(soul, identity = {}) {
   }
   for (const field of ['soulText', 'identityText', 'systemPrompt']) {
     const value = normalized[field] || text(identity[field])
-    if (value && !sections.includes(value)) sections.push(value)
+    if (value) {
+      const heading = { soulText: '# Soul', identityText: '# Identity', systemPrompt: '# System prompt' }[field]
+      sections.push(`${heading}\n\n${value}`)
+    }
   }
   return sections.join('\n\n')
 }
@@ -45,5 +48,6 @@ export function buildAgentContextFiles(soul) {
   return [
     { name: 'SOUL.md', content: normalized.soulText },
     { name: 'IDENTITY.md', content: normalized.identityText },
+    { name: 'AGENTS.md', content: loadAgentsTemplate() },
   ].filter((file) => file.content)
 }
