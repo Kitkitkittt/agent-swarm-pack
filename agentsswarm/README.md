@@ -153,7 +153,11 @@ Set `STANDALONE_TASK_RUNNER_COMMAND` to an operator-controlled executable and `S
 
 `STANDALONE_ALLOWED_PROJECT_ROOTS` is a comma-separated absolute-root allowlist. Task working directories must resolve inside it, including symlink resolution. Its default is `DEFAULT_PROJECT_PATH`, otherwise the package root. Runtime JSON and run artifacts live under `AGENTSSWARM_DATA_DIR`; keep that directory private. Interrupted runs are retained as interrupted after restart and are never silently replayed.
 
+Configured standalone execution requires Linux: the bridge passes an open validated directory descriptor to its supervisor and owns the runner process group. Bridge death terminates that group; other platforms fail closed instead of pretending to provide equivalent containment. Windows/macOS can still use the read-only monitor and remote API mode. The fixed runner is trusted code, not a sandbox against deliberate process escape. Public run reads contain lifecycle metadata only; stdout/stderr and artifact paths remain in the private data directory. HTTPS skill provenance omits query strings and fragments.
+
 Authenticated `POST /tasks` accepts `requiresApproval:true` and `runNow:false`. Approval-required tasks cannot run until the corresponding authenticated `POST /approvals/:id/approve`; decisions are terminal and cannot be replayed. The existing default remains `requiresApproval:false`. The monitor is read-only; approvals are not a promise of sandboxing the configured runner.
+
+Startup reconciles durable approval decisions and task links before accepting requests. It repairs interrupted writes without launching tasks; after recovery an approved task still needs an explicit run request.
 
 Schedules accept exactly one of an ISO `runAt` or positive `intervalMs`, plus `commandText` and task routing metadata. Missed occurrences are not replayed and one schedule cannot overlap itself. Imported skills are bounded inert text, never executable code; HTTPS imports reject redirects and non-public destinations. Connector responses redact credentials; an unverified/configured state is not evidence of external connectivity.
 

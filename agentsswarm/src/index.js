@@ -2319,6 +2319,25 @@ export function createBridgeServer(options = {}) {
 
   async function start(options = {}) {
     if (server.listening) return server.address()
+    if (standaloneTaskManager && standaloneApprovalManager) {
+      for (const task of standaloneTaskManager.listTasks({})) {
+        if (!task.approvalRequired) continue
+        const approvals = standaloneApprovalManager.listApprovals({ taskId: task.id })
+        if (approvals.length > 1) throw new Error('task_approval_state_ambiguous')
+        let approval = approvals[0]
+        if (!approval) {
+          approval = await standaloneApprovalManager.createApproval({
+            taskId: task.id, taskTitle: task.title, taskDescription: task.description,
+            priority: task.priority, rolePresetId: task.rolePresetId, projectPath: task.projectPath,
+            taskCommandMode: task.taskCommandMode, requestedBy: 'recovery',
+          })
+        }
+        if (task.approvalId && task.approvalId !== approval.id) throw new Error('task_approval_state_mismatch')
+        if (task.approvalId !== approval.id || task.approvalStatus !== approval.status) {
+          await standaloneTaskManager.setTaskApproval(task.id, { approvalRequired: true, approvalId: approval.id, approvalStatus: approval.status })
+        }
+      }
+    }
     listenHost = options.host || '127.0.0.1'
     await new Promise((resolve, reject) => {
       const onError = (err) => {

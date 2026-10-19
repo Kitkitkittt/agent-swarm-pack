@@ -45,7 +45,8 @@ test('standalone HTTP requires auth and approval before a real configured runner
   assert.equal(runs.body.runs.length, 1)
   const detail = await request(`/runs/${runs.body.runs[0].id}`)
   assert.equal(detail.body.run.status, 'completed')
-  assert.match(JSON.stringify(detail.body), /real-run-finished/)
+  assert.equal(detail.body.run.exitCode, 0)
+  assert.doesNotMatch(JSON.stringify(detail.body), /real-run-finished|stdout|stderr|\/standalone-task-runs\//)
 })
 
 test('standalone HTTP rejects project escapes and keeps configured connector secrets private', async t => {

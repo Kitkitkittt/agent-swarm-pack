@@ -15,6 +15,15 @@ const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/
 const text = (value) => typeof value === 'string' ? value.trim() : ''
 const failure = (code, statusCode = 400) => Object.assign(new Error(code), { code, statusCode })
 
+function provenance(value) {
+  const source = text(value)
+  try {
+    const url = new URL(source)
+    if (['http:', 'https:'].includes(url.protocol)) return `${url.origin}${url.pathname}`
+  } catch {}
+  return source.slice(0, 2048)
+}
+
 async function noSymlinks(filename) {
   const absolute = path.resolve(filename)
   const parsed = path.parse(absolute)
@@ -70,7 +79,7 @@ function normalizeSkill(skill) {
     name: (text(skill.name) || 'Imported Skill').slice(0, 256),
     description: text(skill.description).slice(0, 4096),
     tags: strings(skill.tags), triggers: strings(skill.triggers),
-    source: (text(skill.source) || 'inline').slice(0, 2048),
+    source: provenance(skill.source) || 'inline',
     body,
   }
 }
