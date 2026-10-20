@@ -74,11 +74,11 @@ test('dashboard shows the twelve newest tasks regardless of priority', async t =
   const { request, dir } = await fixture(t, { TASK_COMMAND_MODE: 'board_only' })
   const created = []
   for (let i = 0; i < 12; i++) {
-    const response = await request('/tasks', { text: `old high priority ${i}`, projectPath: dir, priority: 'high' })
+    const response = await request('/tasks', { text: `old high priority ${i}`, projectPath: dir, priority: 'high', runNow: false })
     assert.equal(response.status, 200)
     created.push(response.body.task.id)
   }
-  const newest = await request('/tasks', { text: 'new normal priority', projectPath: dir, priority: 'normal' })
+  const newest = await request('/tasks', { text: 'new normal priority', projectPath: dir, priority: 'normal', runNow: false })
   assert.equal(newest.status, 200)
 
   const dashboard = await request('/dashboard/data')
