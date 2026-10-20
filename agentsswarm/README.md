@@ -164,6 +164,7 @@ Schedules accept exactly one of an ISO `runAt` or positive `intervalMs`, plus `c
 ### Monitor and canonical verification
 
 The dashboard's Recent tasks table shows the 12 most recently updated tasks (falling back to creation time), with task ID as a deterministic tie-breaker. This display ordering does not change the priority-based default `/tasks` listing or execution dispatch.
+The monitor refreshes on load and every five seconds. Manual refreshes and timer ticks are skipped while a request is pending; a failed refresh leaves the last successful dashboard data visible.
 
 The shared dependency-free monitor is served at `/dashboard`; `npm --prefix ui run dev -- --port 7800` serves the same assets with a narrow read-only bridge proxy. `npm run build:web` emits the deployable static assets under `ui/dist`. No credentials are embedded in the monitor.
 
