@@ -105,6 +105,7 @@
       lastRefresh.textContent = String(error?.message || error)
     } finally {
       refreshPending = false
+      refreshButton.disabled = false
     }
   }
 

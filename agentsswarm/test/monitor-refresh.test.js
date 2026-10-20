@@ -54,6 +54,7 @@ test('monitor skips overlapping refreshes and allows a new refresh after failure
   respond(requests[0], 2)
   await flush()
   assert.equal(elements.get('status-text').textContent, 'Live')
+  assert.equal(elements.get('refresh-btn').disabled, false)
 
   elements.get('refresh-btn').click()
   assert.equal(requests.length, 2)
@@ -61,6 +62,7 @@ test('monitor skips overlapping refreshes and allows a new refresh after failure
   await flush()
   assert.equal(elements.get('tasks-total').textContent, '2')
   assert.equal(elements.get('status-text').textContent, 'Refresh failed')
+  assert.equal(elements.get('refresh-btn').disabled, false)
   intervals[0]()
   assert.equal(requests.length, 3)
   respond(requests[2], 3)
