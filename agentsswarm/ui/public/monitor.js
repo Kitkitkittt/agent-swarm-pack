@@ -72,7 +72,11 @@
     })
   }
 
+  let refreshPending = false
+
   async function refresh() {
+    if (refreshPending) return
+    refreshPending = true
     setStatus('warn', 'Refreshing...')
     refreshButton.disabled = true
     try {
@@ -100,7 +104,7 @@
       setStatus('error', 'Refresh failed')
       lastRefresh.textContent = String(error?.message || error)
     } finally {
-      refreshButton.disabled = false
+      refreshPending = false
     }
   }
 
