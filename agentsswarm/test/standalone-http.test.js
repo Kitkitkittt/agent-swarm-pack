@@ -12,8 +12,8 @@ async function fixture(t, extra = {}) {
   const bridge = createBridgeServer({ config, bridgeState: {} })
   await bridge.start({ port: 0 })
   t.after(async () => { await bridge.stop(); await fs.rm(dir, { recursive: true, force: true }) })
-  const request = async (route, body, secret = 'test-secret') => {
-    const response = await fetch(`${bridge.getListenUrl()}${route}`, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json', 'x-bridge-secret': secret }, body: JSON.stringify(body) })
+  const request = async (route, body, secret = 'test-secret', method = 'POST') => {
+    const response = await fetch(`${bridge.getListenUrl()}${route}`, body === undefined ? {} : { method, headers: { 'content-type': 'application/json', 'x-bridge-secret': secret }, body: JSON.stringify(body) })
     return { status: response.status, body: await response.json() }
   }
   return { bridge, request, dir }
@@ -58,6 +58,33 @@ test('standalone HTTP rejects project escapes and keeps configured connector sec
   assert.doesNotMatch(JSON.stringify(connection.body), /private-token-value/)
   assert.doesNotMatch(JSON.stringify((await request('/connections')).body), /private-token-value/)
   assert.notEqual(connection.body.connection.status, 'connected')
+})
+
+test('schedule HTTP rejects impossible calendar dates without mutation and normalizes valid offsets', async t => {
+  const { request, dir } = await fixture(t)
+  for (const [runAt, expected] of [
+    ['2024-02-29T10:00:00.123456+02:30', '2024-02-29T07:30:00.123Z'],
+    ['0000-02-29T00:00:00Z', '0000-02-29T00:00:00.000Z'],
+    ['2000-02-29T23:30:00-02:00', '2000-03-01T01:30:00.000Z'],
+  ]) {
+    const created = await request('/schedules', { commandText: '# scheduled', enabled: false, runAt })
+    assert.equal(created.status, 200)
+    assert.equal(created.body.schedule.runAt, expected)
+  }
+  const before = (await request('/schedules')).body.schedules
+  const persisted = await fs.readFile(path.join(dir, 'schedules.json'), 'utf8')
+  for (const runAt of ['2027-02-30T10:00:00Z', '2027-02-29T10:00:00Z', '1900-02-29T10:00:00Z', '2024-04-31T10:00:00+02:00']) {
+    const invalid = await request('/schedules', { commandText: '# invalid', enabled: false, runAt })
+    assert.equal(invalid.status, 400, runAt)
+    assert.equal(invalid.body.error, 'schedule_runAt_invalid')
+    assert.deepEqual((await request('/schedules')).body.schedules, before)
+    assert.equal(await fs.readFile(path.join(dir, 'schedules.json'), 'utf8'), persisted)
+    const updated = await request(`/schedules/${before[0].id}`, { runAt }, 'test-secret', 'PATCH')
+    assert.equal(updated.status, 400, runAt)
+    assert.equal(updated.body.error, 'schedule_runAt_invalid')
+    assert.deepEqual((await request('/schedules')).body.schedules, before)
+    assert.equal(await fs.readFile(path.join(dir, 'schedules.json'), 'utf8'), persisted)
+  }
 })
 
 test('standalone directive ingest stays local and monitor exposes real task state', async t => {
