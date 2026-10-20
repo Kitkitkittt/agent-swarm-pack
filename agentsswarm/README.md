@@ -163,6 +163,8 @@ Schedules accept exactly one of an ISO `runAt` or positive `intervalMs`, plus `c
 
 ### Monitor and canonical verification
 
+The dashboard's Recent tasks table shows the 12 most recently updated tasks (falling back to creation time), with task ID as a deterministic tie-breaker. This display ordering does not change the priority-based default `/tasks` listing or execution dispatch.
+
 The shared dependency-free monitor is served at `/dashboard`; `npm --prefix ui run dev -- --port 7800` serves the same assets with a narrow read-only bridge proxy. `npm run build:web` emits the deployable static assets under `ui/dist`. No credentials are embedded in the monitor.
 
 Canonical gates remain `npm ci`, `npm --prefix ui ci`, `npm run check`, `npm test`, `npm run test:web`, `npm run build:web`, bridge startup and `BRIDGE_URL=http://127.0.0.1:7801 npm run test:perf` on Node22. The performance gate makes 100 real health/dashboard/summary requests, requires zero errors and p95 below 1000 ms, and bounds readiness to 20 seconds. This is a local regression budget, not a production SLA.

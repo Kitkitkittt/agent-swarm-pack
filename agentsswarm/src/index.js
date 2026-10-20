@@ -1317,7 +1317,9 @@ export function createBridgeServer(options = {}) {
   function buildDashboardPayload(options = {}) {
     const limit = parseLimit(options.limit, 12, 100)
     const tasks = standaloneTaskManager
-      ? standaloneTaskManager.listTasks({ limit })
+      ? standaloneTaskManager.listTasks({})
+        .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt) || a.id.localeCompare(b.id))
+        .slice(0, limit)
       : []
     const approvals = standaloneApprovalManager
       ? standaloneApprovalManager.listApprovals({ limit })
