@@ -11,6 +11,7 @@ function setupMonitor() {
       addEventListener(name, callback) { this.listeners[name] = callback },
       click() { this.listeners.click?.() },
       children: [], append(child) { this.children.push(child) },
+      get firstElementChild() { return this.children[0] },
       replaceChildren(...children) { this.children = children },
     })
     return elements.get(id)
@@ -19,7 +20,7 @@ function setupMonitor() {
   const intervals = []
   const document = {
     getElementById: element,
-    createElement: tag => ({ tag, textContent: '', className: '', append() {} }),
+    createElement: tag => ({ tag, textContent: '', className: '', children: [], append(child) { this.children.push(child) }, get firstElementChild() { return this.children[0] } }),
     createDocumentFragment: () => ({ append() {} }),
   }
   const context = {
@@ -52,14 +53,14 @@ test('monitor skips overlapping refreshes and allows a new refresh after failure
 
   respond(requests[0], 2)
   await flush()
-  assert.equal(elements.get('tasks-total').textContent, '2')
+  assert.equal(elements.get('status-text').textContent, 'Live')
 
   elements.get('refresh-btn').click()
   assert.equal(requests.length, 2)
   requests[1].reject(new Error('network down'))
   await flush()
   assert.equal(elements.get('tasks-total').textContent, '2')
-
+  assert.equal(elements.get('status-text').textContent, 'Refresh failed')
   intervals[0]()
   assert.equal(requests.length, 3)
   respond(requests[2], 3)
