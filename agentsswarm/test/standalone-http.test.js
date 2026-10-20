@@ -70,6 +70,24 @@ test('standalone directive ingest stays local and monitor exposes real task stat
   assert.equal(dashboard.body.tasks[0].commandType, 'directive')
 })
 
+test('dashboard shows the twelve newest tasks regardless of priority', async t => {
+  const { request, dir } = await fixture(t, { TASK_COMMAND_MODE: 'board_only' })
+  const created = []
+  for (let i = 0; i < 12; i++) {
+    const response = await request('/tasks', { text: `old high priority ${i}`, projectPath: dir, priority: 'high' })
+    assert.equal(response.status, 200)
+    created.push(response.body.task.id)
+  }
+  const newest = await request('/tasks', { text: 'new normal priority', projectPath: dir, priority: 'normal' })
+  assert.equal(newest.status, 200)
+
+  const dashboard = await request('/dashboard/data')
+  assert.equal(dashboard.body.tasks.length, 12)
+  assert.equal(dashboard.body.tasks[0].id, newest.body.task.id)
+  assert.ok(!dashboard.body.tasks.some(task => task.id === created[0]))
+  assert.equal((await request('/tasks?limit=100')).body.tasks[0].priority, 'high')
+})
+
 test('configured timeout is terminal and board-only ingest does not execute', async t => {
   const { request, dir } = await fixture(t, { TASK_COMMAND_MODE: 'board_only', STANDALONE_TASK_RUNNER_TIMEOUT_MS: '50', STANDALONE_TASK_RUNNER_ARGS: JSON.stringify(['-e', 'setInterval(()=>{},1000)']) })
   const ingested = await request('/ingest', { text: '# queued', projectPath: dir, platform: 'cli', channelId: 'terminal', connectorId: 'cli' })
