@@ -8,12 +8,23 @@ const now = () => new Date().toISOString()
 const statuses = new Set(['scheduled', 'running', 'completed', 'failed', 'interrupted', 'missed', 'disabled'])
 function invalid(message) { return Object.assign(new Error(message), { statusCode: 400 }) }
 
+function validCalendarDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T/.exec(value)
+  if (!match) return false
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  return month >= 1 && month <= 12 && day >= 1 && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
 function cadence(input) {
   const hasRunAt = input.runAt !== undefined && input.runAt !== null && input.runAt !== ''
   const hasInterval = input.intervalMs !== undefined && input.intervalMs !== null
   if (hasRunAt === hasInterval) throw invalid('schedule_requires_runAt_or_intervalMs')
   if (hasRunAt) {
-    if (typeof input.runAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(input.runAt) || !Number.isFinite(Date.parse(input.runAt))) throw invalid('schedule_runAt_invalid')
+    if (typeof input.runAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(input.runAt) || !validCalendarDate(input.runAt) || !Number.isFinite(Date.parse(input.runAt))) throw invalid('schedule_runAt_invalid')
     return { runAt: new Date(input.runAt).toISOString(), intervalMs: null }
   }
   if (!Number.isSafeInteger(input.intervalMs) || input.intervalMs <= 0) throw invalid('schedule_intervalMs_invalid')

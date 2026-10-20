@@ -159,7 +159,7 @@ Authenticated `POST /tasks` accepts `requiresApproval:true` and `runNow:false`. 
 
 Startup reconciles durable approval decisions and task links before accepting requests. It repairs interrupted writes without launching tasks; after recovery an approved task still needs an explicit run request.
 
-Schedules accept exactly one of an ISO `runAt` or positive `intervalMs`, plus `commandText` and task routing metadata. Missed occurrences are not replayed and one schedule cannot overlap itself. Imported skills are bounded inert text, never executable code; HTTPS imports reject redirects and non-public destinations. Connector responses redact credentials; an unverified/configured state is not evidence of external connectivity.
+Schedules accept exactly one of an ISO `runAt` or positive `intervalMs`, plus `commandText` and task routing metadata. `runAt` must name a real calendar date, including leap-year rules, with an explicit `Z` or numeric timezone offset; impossible dates return `400 schedule_runAt_invalid` on create or update without changing saved schedules. Valid offsets and fractional seconds remain accepted and are normalized to UTC milliseconds. Missed occurrences are not replayed and one schedule cannot overlap itself. Imported skills are bounded inert text, never executable code; HTTPS imports reject redirects and non-public destinations. Connector responses redact credentials; an unverified/configured state is not evidence of external connectivity.
 
 ### Monitor and canonical verification
 
